@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        input, button {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Task Manager</h1>
+
+    <!-- Register Form -->
+    <h2>Register</h2>
+    <input type="text" id="reg_username" placeholder="Username">
+    <input type="password" id="reg_password" placeholder="Password">
+    <button onclick="registerUser()">Register</button>
+    <p id="reg_result"></p>
+
+    <!-- Login Form -->
+    <h2>Login</h2>
+    <input type="text" id="login_username" placeholder="Username">
+    <input type="password" id="login_password" placeholder="Password">
+    <button onclick="loginUser()">Login</button>
+    <p id="login_result"></p>
+
+    <!-- Task Management -->
+    <h2>Create Task</h2>
+    <input type="text" id="task_title" placeholder="Task Title">
+    <input type="text" id="task_desc" placeholder="Task Description">
+    <button onclick="createTask()">Create Task</button>
+    <p id="task_result"></p>
+
+    <h2>Your Tasks</h2>
+    <button onclick="getTasks()">Load Tasks</button>
+    <ul id="task_list"></ul>
+
+    <script>
+        const API_URL = "http://127.0.0.1:5000"; // Change this if Flask runs on a different port
+        let jwtToken = localStorage.getItem("jwtToken") || '';
+
+        function registerUser() {
+            const username = document.getElementById("reg_username").value;
+            const password = document.getElementById("reg_password").value;
+
+            fetch(`${API_URL}/register`, {  // ✅ Fix URL
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("reg_result").innerText = data.message || data.error;
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function loginUser(username, password) {
+            fetch(`${API_URL}/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.access_token) {
+                    localStorage.setItem("jwtToken", data.access_token); // Save token
+                    alert("Login successful!");
+                    window.location.reload(); // Reload to reflect authentication
+                } else {
+                    alert("Invalid credentials");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function createTask() {
+            const title = document.getElementById("task_title").value;
+            const description = document.getElementById("task_desc").value;
+
+            fetch(`${API_URL}/tasks`, {  // ✅ Fix URL
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + jwtToken
+                },
+                body: JSON.stringify({ title, description })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("task_result").innerText = data.message || data.error;
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+            function getTasks() {
+                fetch(`${API_URL}/tasks`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + jwtToken
+                    }
+                })
+                .then(response => response.json())
+                .then(tasks => {
+                    const taskList = document.getElementById("task_list");
+                    taskList.innerHTML = "";
+
+                    tasks.forEach(task => {
+                        const li = document.createElement("li");
+                        li.innerHTML = `
+                            ${task.title} - ${task.description} [${task.completed ? "Done" : "Pending"}]
+                            <button onclick="editTask(${task.id}, '${task.title}', '${task.description}')">Edit</button>
+                            <button onclick="deleteTask(${task.id})">Delete</button>
+                        `;
+                        taskList.appendChild(li);
+                    });
+                })
+                .catch(error => console.error("Error:", error));
+            }
+
+        function editTask(taskId, currentTitle, currentDesc, currentStatus) {
+            if (!taskId) {
+                alert("Task ID is missing!");
+                return;
+            }
+
+            const newTitle = prompt("Enter new title:", currentTitle);
+            const newDesc = prompt("Enter new description:", currentDesc);
+            const newStatus = prompt("Enter new status (true/false):", currentStatus);
+
+            if (!newTitle || !newDesc) {
+                alert("Title and description cannot be empty!");
+                return;
+            }
+
+            fetch(`${API_URL}/tasks/${taskId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + jwtToken  // Use stored dynamic token
+                },
+                body: JSON.stringify({
+                    title: newTitle,
+                    description: newDesc,
+                    completed: newStatus.toLowerCase() === "true" // Convert string to boolean
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || "Update failed") });
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                getTasks(); // Refresh task list
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert(error.message); // Show meaningful error
+            });
+        }
+
+        function deleteTask(taskId) {
+            if (!taskId) {
+                alert("Task ID is missing!");
+                return;
+            }
+
+            if (confirm("Are you sure you want to delete this task?")) {
+                fetch(`${API_URL}/tasks/${taskId}`, {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + jwtToken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    getTasks(); // Reload tasks
+                })
+                .catch(error => console.error("Error:", error));
+            }
+        }
+
+    </script>
+
+</body>
+</html>
+
