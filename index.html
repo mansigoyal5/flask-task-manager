@@ -72,7 +72,7 @@
     <ul id="task_list"></ul>
 
     <script>
-        const API_URL = "http://127.0.0.1:5000"; // Change this if Flask runs on a different port
+        const API_URL = "http://65.2.34.175:8003";
         let jwtToken = localStorage.getItem("jwtToken") || '';
 
         function registerUser() {
@@ -102,7 +102,7 @@
                 if (data.access_token) {
                     localStorage.setItem("jwtToken", data.access_token); // Save token
                     alert("Login successful!");
-                    window.location.reload(); // Reload to reflect authentication
+                    window.location.reload();
                 } else {
                     alert("Invalid credentials");
                 }
@@ -174,12 +174,12 @@
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": "Bearer " + jwtToken  // Use stored dynamic token
+                    "Authorization": "Bearer " + jwtToken
                 },
                 body: JSON.stringify({
                     title: newTitle,
                     description: newDesc,
-                    completed: newStatus.toLowerCase() === "true" // Convert string to boolean
+                    completed: newStatus.toLowerCase() === "true"
                 })
             })
             .then(response => {
